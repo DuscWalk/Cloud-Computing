@@ -27,7 +27,7 @@ docker compose run --rm --no-deps migrate python -c \
 docker compose run --rm --no-deps migrate
 docker compose up -d --no-build --no-deps api cleanup web
 for attempt in {1..30}; do
-    if docker compose exec -T web wget -q -O - http://localhost/api/health/ready; then
+    if docker compose exec -T web wget -q -O - http://127.0.0.1/api/health/ready; then
         # Keep later maintenance commands on the deployed images, without relying on
         # environment variables that disappear when this SSH session ends.
         python3 - <<'PY'
