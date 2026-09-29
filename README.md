@@ -2,7 +2,7 @@
 
 架构及模型见 [设计文档](docs/design.md)。第三次迭代实现 YuNet 检测、SFace 编码、匿名身份检索、拒识、幂等签到和记录查询，以及管理员活动/人员/照片管理。实现与验收进度见 [迭代三说明](docs/iteration-three.md)。
 
-云端体验：**https://120.46.147.216**（ECS 开机时可用）。可自行注册后登录；未登录也可上传照片。公网验证结果及截图位置见 [迭代二云端验收记录](docs/iteration-two-cloud.md)。
+云端体验：**https://120.46.147.216**（ECS 开机时可用）。已完成迭代三部署和真实模型验收：注册录入后，无需登录即可选择活动并拍照签到。公网验证结果、并发实测和截图位置见 [迭代三云端验收记录](docs/iteration-three-cloud.md)。
 
 ## 本地开发
 
@@ -27,7 +27,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-浏览器测试需要 API 和前端正在运行，会创建测试用户；运行前请使用独立测试数据库。更改数据库结构应生成并检查 Alembic 迁移，不能通过启动 API 自动建表。
+浏览器测试默认跳过；需显式设置远程 `E2E_BASE_URL`、`E2E_ADMIN_USERNAME` 和 `E2E_ADMIN_PASSWORD` 才执行。密码只通过私有文件或进程环境传入。测试会创建并删除专用测试用户；本机只运行浏览器，不启动模型。更改数据库结构应生成并检查 Alembic 迁移，不能通过启动 API 自动建表。
 
 ## MySQL / Redis 集成环境
 

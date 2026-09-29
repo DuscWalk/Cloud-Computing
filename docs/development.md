@@ -4,7 +4,7 @@
 
 检测 YuNet、编码 SFace、CPU 推理、小图库余弦检索与资源约束相符，没有阻止第二次迭代的架构问题。补充了第二次迭代 `uploaded` 和第三次迭代 `ready` 的区别、SQLite 开发环境与 MySQL 部署环境、数据库会话与临时图片清理。
 
-尚需第三次迭代验证模型兼容性、实际拒识阈值和 CPU 性能；HTTPS 及 40 元预算中的现有资源费用在部署前核实，不声称已验证。
+模型兼容性、可信 HTTPS 和 ECS CPU 推理已验证，结果见 [迭代三云端验收](iteration-three-cloud.md)。真实课堂照片的拒识阈值仍需校准，40 元预算中的现有资源费用以华为云账单核算。
 
 ## ECS 首次准备（服务器开机后执行）
 
@@ -30,6 +30,8 @@
 | Secret | ECS_KNOWN_HOSTS | 核验后的 known_hosts 条目 |
 
 应用密钥和数据库密码只保存在 ECS `.env`，无需传入 GitHub。镜像发布使用 GitHub 的短期 `GITHUB_TOKEN`。运行部署工作流前需开启 ECS，并填写已通过 main CI 的完整提交 SHA。
+
+镜像发布分别缓存 API 和 Web 的构建层，减少后续小改动重新安装依赖和下载大层的开销。ECS 访问 GHCR 过慢时，可先在开发机拉取 CI 镜像，再通过 `docker image save | gzip | ssh ... docker image load` 传入；这只传文件，不在开发机启动模型。
 
 建议对 main 设置 CI 必须通过的分支规则（backend/frontend/models/integration），并在 production Environment 限制 main 部署来源。可用性以当前 GitHub 仓库套餐为准。
 
