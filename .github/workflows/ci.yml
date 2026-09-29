@@ -92,14 +92,21 @@ jobs:
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
-      - name: Start MySQL, Redis, API and web
+      - name: Start database, queue, CPU Worker, API and web
         run: docker compose up --build -d --wait --wait-timeout 300
       - name: Provision isolated CI administrator
         run: printf '%s\n' "$E2E_ADMIN_PASSWORD" | docker compose exec -T api python -m app.admin create-admin "$E2E_ADMIN_USERNAME" --password-stdin
-      - run: npm run test:e2e
+      - name: Exercise attendance and capture resource samples
+        run: |
+          mkdir -p runtime-evidence
+          docker stats --format '{{json .}}' > runtime-evidence/container-stats.jsonl &
+          stats_pid=$!
+          trap 'kill "$stats_pid" 2>/dev/null || true' EXIT
+          npm run test:e2e
         working-directory: frontend
         env:
           E2E_BASE_URL: http://127.0.0.1:8080
+          E2E_DATABASE_EVIDENCE: compose
       - name: Save screenshots and browser report
         if: always()
         uses: actions/upload-artifact@v4
@@ -108,6 +115,7 @@ jobs:
           path: |
             frontend/test-results
             frontend/playwright-report
+            frontend/runtime-evidence
           retention-days: 7
       - name: Container logs
         if: always()

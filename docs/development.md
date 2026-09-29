@@ -31,7 +31,7 @@
 
 应用密钥和数据库密码只保存在 ECS `.env`，无需传入 GitHub。镜像发布使用 GitHub 的短期 `GITHUB_TOKEN`。运行部署工作流前需开启 ECS，并填写已通过 main CI 的完整提交 SHA。
 
-建议对 main 设置 CI 必须通过的分支规则（backend/frontend/integration），并在 production Environment 限制 main 部署来源。可用性以当前 GitHub 仓库套餐为准。
+建议对 main 设置 CI 必须通过的分支规则（backend/frontend/models/integration），并在 production Environment 限制 main 部署来源。可用性以当前 GitHub 仓库套餐为准。
 
 ## 发布与恢复
 
@@ -45,7 +45,7 @@ CI 成功发布镜像后，手动执行 Deploy ECS，填写完整 40 位 SHA。�
 
 数据库证据使用 `python -m app.evidence` 输出无密码、会话令牌和原图的只读表格快照（生成 HTML 位于本地 artifacts），分别演示注册前后、登录、注销、照片上传的行数变化。公开提交前仍须人工核查姓名学号脱敏，课程正式手机照片由实际验收手机拍摄。
 
-第三次迭代尚未完成：模型下载和校验、Celery 识别 Worker、身份拒识、活动配置、签到写入和压测。第二次迭代不会返回虚假的识别成功。
+第三次迭代已实现模型下载和校验、Celery 识别 Worker、身份拒识、活动配置、签到写入和并发测试脚本，验证状态见 [迭代三说明](iteration-three.md)。当前 CI 输出真实模型流程的截图与 1/5/10 并发报告；数据库快照增加模型版本、特征维度、任务结果和签到记录，不输出特征向量或姓名学号。本机不启动模型或完整 Compose 栈；真实推理只在 GitHub CI / ECS 上验证。
 
 ## 公网 IP 部署（2026-09-29）
 

@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext } from '@playwright/test'
 import fs from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import os from 'node:os'
+import { execFileSync } from 'node:child_process'
 
 const known = new URL('../../backend/tests/fixtures/astronaut.png', import.meta.url).pathname
 const unknown = new URL('../../backend/tests/fixtures/grace_hopper.jpg', import.meta.url).pathname
@@ -117,6 +118,18 @@ test('real models: register, anonymous recognition, reject unknown, records and 
     const saved = await (await admin.get(`/api/admin/events/${eventId}/records`)).json()
     expect(saved.items).toHaveLength(1)
     expect(saved.items[0].name).toBe(personName)
+    if (process.env.E2E_DATABASE_EVIDENCE === 'compose') {
+      // Only the isolated CI stack opts in. The developer machine never starts models.
+      const compose = ['compose', '-f', '../compose.yaml', 'exec', '-T', 'api']
+      execFileSync('docker', [...compose, 'python', '-m', 'app.evidence', '--output', '/tmp/database-evidence.html'])
+      const html = execFileSync('docker', [...compose, 'cat', '/tmp/database-evidence.html'], { encoding: 'utf8' })
+      fs.writeFileSync(info.outputPath('database.html'), html)
+      const databasePage = await page.context().newPage()
+      await databasePage.setViewportSize({ width: 1600, height: 1000 })
+      await databasePage.setContent(html)
+      await databasePage.screenshot({ path: info.outputPath('07-server-database.png'), fullPage: true })
+      await databasePage.close()
+    }
     await page.getByRole('button', { name: '登录', exact: true }).click()
     await page.getByLabel('账号', { exact: true }).fill(username)
     await page.getByLabel('密码', { exact: true }).fill(password)
