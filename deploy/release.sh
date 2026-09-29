@@ -28,6 +28,21 @@ docker compose run --rm --no-deps migrate
 docker compose up -d --no-build --no-deps api cleanup web
 for attempt in {1..30}; do
     if docker compose exec -T web wget -q -O - http://localhost/api/health/ready; then
+        # Keep later maintenance commands on the deployed images, without relying on
+        # environment variables that disappear when this SSH session ends.
+        python3 - <<'PY'
+import os
+from pathlib import Path
+
+path = Path('.env')
+keys = ('BACKEND_IMAGE', 'FRONTEND_IMAGE')
+lines = [line for line in path.read_text().splitlines() if not line.startswith(tuple(k + '=' for k in keys))]
+lines.extend(f'{key}={os.environ[key]}' for key in keys)
+temporary = path.with_name('.env.next')
+temporary.write_text('\n'.join(lines) + '\n')
+temporary.chmod(0o600)
+temporary.replace(path)
+PY
         printf '\n%s\n' "$revision" > .deployed-revision
         echo 'Deployment healthy'
         exit 0
