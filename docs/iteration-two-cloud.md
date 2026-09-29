@@ -41,9 +41,11 @@
 
 上述手机页面来自浏览器模拟尺寸，正式提交前仍需使用实际手机拍摄照片、注册和上传并补充截图。未录入人员拒识、真正签到成功和签到记录写入属于迭代三。
 
-## 尚未启用的设施
+## CI/CD 验证
 
-GitHub Actions 的 CI 和镜像发布已运行；手动 SSH 发布已成功。Actions 的 `Deploy ECS` 尚缺 `production` Environment 的 Variables/Secrets，本机只有 Git SSH 认证，没有 GitHub API 登录凭证，因此尚未写入这些设置。
+GitHub Actions 的 CI、镜像发布、手动 SSH 发布均已验证。用户在 GitHub 网页完成 `production` Environment 配置后，于 2026-09-29 触发 [Deploy ECS #36561209961](https://github.com/DuscWalk/Cloud-Computing/actions/runs/36561209961)。CI 版本核验、SSH 配置、文件传输及发布步骤全部成功。
+
+部署后复核：ECS `.deployed-revision` 为 `439f5ac2e13bc5e8d5b766ca0693a2aee20ec0c2`，API、Web、MySQL、Redis 均健康，清理进程运行，公网 `/api/health/ready` 返回 `ready`。生产发布保持手动触发，普通推送只执行 CI 和镜像发布。
 
 独立 Actions 密钥已生成在开发机 `/home/duscwalk/.ssh/nju_attendance_actions`，其公钥已安装并通过 SSH 验证，禁用端口转发和 PTY。私钥不进入仓库，也不要直接发送到聊天中。经既有 SSH 信任链核验的主机公钥保存在本地 `artifacts/cloud/known_hosts`。GitHub 所需字段见 [部署说明](development.md#github-配置)。
 

@@ -45,7 +45,7 @@ docker compose down
 
 GitHub Actions 在推送 main 或 PR 时检查 Python、TypeScript、迁移及 MySQL/Redis 下的手机/桌面浏览器完整流程。main 的 CI 全部通过后发布按完整提交 SHA 标记的 API/Web 镜像到 GHCR。
 
-`Deploy ECS` 工作流手动执行，验证该 SHA 的 main CI 成功后再部署；服务器关闭时不会自动尝试部署。ECS 初始化、公网 IP HTTPS、证书续期及 GitHub secrets/variables 见 [部署说明](docs/development.md)。Actions 远程部署仍需配置 Environment Secrets，本地 SSH 可直接执行发布脚本。
+`Deploy ECS` 工作流手动执行，验证该 SHA 的 main CI 成功后再部署；服务器关闭时不会自动尝试部署。`production` 环境已配置，并于 2026-09-29 [完成首次 Actions 远程部署](https://github.com/DuscWalk/Cloud-Computing/actions/runs/36561209961)。ECS 初始化、公网 IP HTTPS、证书续期及 GitHub secrets/variables 见 [部署说明](docs/development.md)。本地 SSH 也可直接执行发布脚本。
 
 ## 当前接口
 

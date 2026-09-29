@@ -17,19 +17,19 @@
 
 ## GitHub 配置
 
-当前本机已配置 Git SSH，可推送代码，但没有 GitHub API 登录凭证。因此不能代为写入 Environment 的 Secrets 或分支规则；以下项目需要在 GitHub 设置页配置后，Actions 的远程部署按钮才能工作。本地 SSH 手动发布不依赖这些 Secrets。
+用户已于 2026-09-29 在 GitHub 网页完成 `production` 环境配置；[首次 Actions 部署](https://github.com/DuscWalk/Cloud-Computing/actions/runs/36561209961) 全部通过，ECS 版本与公网 readiness 已复核。本机仍仅配置 Git SSH，没有 GitHub API 登录凭证；后续修改仓库设置可继续通过网页完成。本地 SSH 手动发布不依赖 GitHub Secrets。
 
-创建 `production` Environment，并配置：
+`production` Environment 使用以下配置（重建环境时参考）：
 
 | 类型 | 名称 | 值 |
 | --- | --- | --- |
-| Variable | ECS_HOST | 实际 EIP 或主机名 |
+| Variable | ECS_HOST | 120.46.147.216 |
 | Variable | ECS_USER | duscwalk |
 | Variable | ECS_PORT | SSH 端口，默认 22 |
 | Secret | ECS_SSH_KEY | 独立部署密钥的私钥 |
 | Secret | ECS_KNOWN_HOSTS | 核验后的 known_hosts 条目 |
 
-应用密钥和数据库密码只保存在 ECS `.env`，无需传入 GitHub。镜像发布使用 GitHub 的短期 `GITHUB_TOKEN`。工作流文件可以先提交；以上主机配置未完成前，CD 不具备实际上线条件。
+应用密钥和数据库密码只保存在 ECS `.env`，无需传入 GitHub。镜像发布使用 GitHub 的短期 `GITHUB_TOKEN`。运行部署工作流前需开启 ECS，并填写已通过 main CI 的完整提交 SHA。
 
 建议对 main 设置 CI 必须通过的分支规则（backend/frontend/integration），并在 production Environment 限制 main 部署来源。可用性以当前 GitHub 仓库套餐为准。
 
