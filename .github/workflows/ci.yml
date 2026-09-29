@@ -50,9 +50,37 @@ jobs:
       - run: npm run build
         working-directory: frontend
 
+  models:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.17'
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: backend/models/*.onnx
+          key: opencv-zoo-47534e27c9851bb1128ccc0102f1145e27f23f98
+      - run: uv sync --project backend --frozen
+      - run: uv run python -m app.model_assets
+        working-directory: backend
+      - run: uv run pytest -q -s tests/test_models.py
+        working-directory: backend
+        env:
+          RUN_MODEL_TESTS: '1'
+
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      MYSQL_PASSWORD: ci-app-password
+      MYSQL_ROOT_PASSWORD: ci-root-password
+      APP_SECRET_KEY: ci-only-secret-key-not-used-in-production
+      E2E_ADMIN_USERNAME: ci_admin
+      E2E_ADMIN_PASSWORD: ci-only-admin-password-2026
+      COMPOSE_BAKE: 'false'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -65,11 +93,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
       - name: Start MySQL, Redis, API and web
-        env:
-          MYSQL_PASSWORD: ci-app-password
-          MYSQL_ROOT_PASSWORD: ci-root-password
-          APP_SECRET_KEY: ci-only-secret-key-not-used-in-production
-        run: docker compose up --build -d --wait --wait-timeout 240
+        run: docker compose up --build -d --wait --wait-timeout 300
+      - name: Provision isolated CI administrator
+        run: printf '%s\n' "$E2E_ADMIN_PASSWORD" | docker compose exec -T api python -m app.admin create-admin "$E2E_ADMIN_USERNAME" --password-stdin
       - run: npm run test:e2e
         working-directory: frontend
         env:
@@ -78,22 +104,18 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: iteration-two-evidence
+          name: iteration-three-evidence
           path: |
             frontend/test-results
             frontend/playwright-report
           retention-days: 7
       - name: Container logs
         if: always()
-        env:
-          MYSQL_PASSWORD: ci-app-password
-          MYSQL_ROOT_PASSWORD: ci-root-password
-          APP_SECRET_KEY: ci-only-secret-key-not-used-in-production
-        run: docker compose logs --no-color api migrate web
+        run: docker compose logs --no-color api migrate model-init worker dispatcher web
 
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [backend, frontend, integration]
+    needs: [backend, frontend, models, integration]
     runs-on: ubuntu-latest
     permissions:
       contents: read

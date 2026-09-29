@@ -1,4 +1,7 @@
-from pydantic import BaseModel, Field, field_validator
+from datetime import timezone
+from typing import Literal
+
+from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
 
 
 class RegisterData(BaseModel):
@@ -24,3 +27,26 @@ class RegisterData(BaseModel):
 class LoginData(BaseModel):
     username: str = Field(min_length=1, max_length=32)
     password: str = Field(min_length=1, max_length=128)
+
+
+class EventData(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    starts_at: AwareDatetime
+    ends_at: AwareDatetime
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def name_not_blank(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def window(self):
+        if self.ends_at <= self.starts_at:
+            raise ValueError("结束时间必须晚于开始时间")
+        self.starts_at = self.starts_at.astimezone(timezone.utc)
+        self.ends_at = self.ends_at.astimezone(timezone.utc)
+        return self
+
+
+class UserState(BaseModel):
+    status: Literal["active", "disabled"]

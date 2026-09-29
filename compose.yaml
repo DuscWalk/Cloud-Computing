@@ -9,8 +9,14 @@ x-backend: &backend
     APP_SECRET_KEY: ${APP_SECRET_KEY:?Set APP_SECRET_KEY}
     APP_COOKIE_SECURE: ${APP_COOKIE_SECURE:-false}
     APP_STORAGE_DIR: /app/data/photos
+    APP_MODEL_DIR: /app/models
+    APP_OPENCV_THREADS: ${APP_OPENCV_THREADS:-2}
+    APP_MATCH_THRESHOLD: ${APP_MATCH_THRESHOLD:-0.50}
+    APP_MATCH_MARGIN: ${APP_MATCH_MARGIN:-0.08}
+    APP_QUEUE_CAPACITY: ${APP_QUEUE_CAPACITY:-32}
   volumes:
     - photos:/app/data/photos
+    - models:/app/models:ro
 
 services:
   mysql:
@@ -48,6 +54,41 @@ services:
       mysql:
         condition: service_healthy
 
+  model-init:
+    <<: *backend
+    command: ["python", "-m", "app.model_assets"]
+    volumes:
+      - models:/app/models
+
+  worker:
+    <<: *backend
+    restart: unless-stopped
+    command: ["celery", "-A", "app.worker:celery", "worker", "--loglevel=INFO", "--pool=prefork", "--concurrency=1", "--heartbeat-interval=2", "--without-gossip", "--without-mingle"]
+    stop_grace_period: 45s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      model-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "from app.jobs import worker_ready; raise SystemExit(0 if worker_ready() else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+
+  dispatcher:
+    <<: *backend
+    restart: unless-stopped
+    command: ["python", "-m", "app.dispatcher"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
   api:
     <<: *backend
     restart: unless-stopped
@@ -55,6 +96,8 @@ services:
       migrate:
         condition: service_completed_successfully
       redis:
+        condition: service_healthy
+      worker:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/ready')"]
@@ -89,3 +132,4 @@ volumes:
   mysql-data:
   redis-data:
   photos:
+  models:

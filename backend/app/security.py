@@ -65,12 +65,19 @@ def optional_user(request: Request, db: Session = Depends(get_db)) -> User | Non
     session = db.get(UserSession, digest(token))
     if not session or session.expires_at <= utcnow():
         return None
-    return db.get(User, session.user_id)
+    user = db.get(User, session.user_id)
+    return user if user and user.status == "active" else None
 
 
 def current_user(user: User | None = Depends(optional_user)) -> User:
     if user is None:
         raise HTTPException(401, "请先登录")
+    return user
+
+
+def admin_user(user: User = Depends(current_user)) -> User:
+    if user.role != "admin":
+        raise HTTPException(403, "需要管理员权限")
     return user
 
 

@@ -14,7 +14,8 @@ class Base(DeclarativeBase):
 def get_engine():
     url = get_settings().database_url
     options = {"check_same_thread": False} if url.startswith("sqlite") else {}
-    engine = create_engine(url, connect_args=options, pool_pre_ping=True)
+    engine_options = {} if url.startswith("sqlite") else {"isolation_level": "READ COMMITTED"}
+    engine = create_engine(url, connect_args=options, pool_pre_ping=True, **engine_options)
     if url.startswith("sqlite"):
 
         @event.listens_for(engine, "connect")

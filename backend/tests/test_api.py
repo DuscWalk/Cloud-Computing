@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from conftest import login, register
+from conftest import checkin, login, register
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,7 @@ from app.models import Counter, Photo, RecognitionJob, User, UserSession, utcnow
 def test_register_login_logout_and_persistence(client, image):
     data = register(client, image)
     assert data.status_code == 201
-    assert data.json()["photo"]["status"] == "uploaded"
+    assert data.json()["photo"]["status"] == "pending"
     assert "password" not in data.text
     assert client.get("/api/me").status_code == 401
     assert login(client).status_code == 200
@@ -77,11 +77,11 @@ def test_photo_and_job_access_isolation(client, image):
     )
 
 
-def test_anonymous_upload_and_cleanup(client, image):
-    response = client.post("/api/uploads", files={"photo": ("photo.jpg", image, "image/jpeg")})
-    assert response.status_code == 201
+def test_anonymous_upload_and_cleanup(client, image, event_id):
+    response = checkin(client, image, event_id)
+    assert response.status_code == 202
     data = response.json()
-    assert data["status"] == "uploaded"
+    assert data["status"] == "queued"
     assert client.get(f"/api/jobs/{data['id']}").status_code == 404
     assert (
         client.get(f"/api/jobs/{data['id']}", headers={"X-Job-Token": data["token"]}).status_code
