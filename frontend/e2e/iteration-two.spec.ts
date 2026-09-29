@@ -11,6 +11,8 @@ test('register, log in, inspect private photo, log out, upload anonymously', asy
   const username = `u-${suffix}`.slice(-32)
   const password = randomBytes(24).toString('hex')
   await page.goto('/')
+  // Vant embeds its icon font as a data URL; production CSP must allow that font.
+  expect(await page.evaluate(async () => (await document.fonts.load('16px vant-icon')).length)).toBeGreaterThan(0)
   await page.getByRole('button', { name: '注册账号', exact: true }).click()
   await page.getByLabel('姓名', { exact: true }).fill('验收同学')
   await page.getByLabel('学号/工号').fill(suffix)

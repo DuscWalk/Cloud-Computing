@@ -6,7 +6,7 @@
 
 ## 部署与测试结果
 
-- 应用镜像版本：`83e33e2b9d2d536d6bfb2ad986ec7ca911cc1dab`。该版本 [CI](https://github.com/DuscWalk/Cloud-Computing/actions/runs/36557467302) 的 backend、frontend、integration、publish 全部成功。
+- 首次业务验收镜像版本：`83e33e2b9d2d536d6bfb2ad986ec7ca911cc1dab`。该版本 [CI](https://github.com/DuscWalk/Cloud-Computing/actions/runs/36557467302) 的 backend、frontend、integration、publish 全部成功。后续修复内嵌图标字体的 CSP 配置，并增加字体加载检查；当前部署版本以服务器 `.deployed-revision` 为准。
 - 使用独立部署密钥，以 `duscwalk` 执行发布脚本，完成 MySQL 备份、Alembic 迁移及 readiness 检查。API、Web、MySQL、Redis 健康，临时照片清理进程运行。
 - 从开发机经公网 HTTPS 运行 Chromium 的 Pixel 7 模拟尺寸流程：注册并上传、登录、私有照片显示、查看空签到记录、退出、匿名上传和任务状态查询全部通过。额外检查了桌面页面。
 - 登录 Cookie 的 Secure、HttpOnly 属性已验证。退出后 `/api/me` 返回 401。
