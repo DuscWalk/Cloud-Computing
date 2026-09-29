@@ -14,18 +14,21 @@ export BACKEND_IMAGE="ghcr.io/duscwalk/cloud-computing-api:$revision"
 export FRONTEND_IMAGE="ghcr.io/duscwalk/cloud-computing-web:$revision"
 
 docker compose pull api migrate model-init worker dispatcher cleanup web
+docker compose up -d --no-build --wait --wait-timeout 180 mysql redis
+docker compose run --rm --no-deps migrate python -c \
+    'from app.config import get_settings; assert get_settings().env == "production", "Set APP_ENV=production"'
+# Verify/download weights before the maintenance window; network failures keep the old app online.
+docker compose run --rm --no-deps model-init
+# Quiesce writers before backup/schema changes, including workers from future releases.
+docker compose stop -t 45 api worker dispatcher cleanup
 if docker compose ps --status running --services | grep -qx mysql; then
     backup="backups/pre-$revision-$(date -u +%Y%m%dT%H%M%SZ).sql"
     docker compose exec -T mysql sh -c \
         'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqldump -uroot --single-transaction --no-tablespaces attendance' > "$backup"
     test -s "$backup"
 fi
-docker compose up -d --no-build --wait --wait-timeout 180 mysql redis
-docker compose run --rm --no-deps migrate python -c \
-    'from app.config import get_settings; assert get_settings().env == "production", "Set APP_ENV=production"'
 # Run migrations exactly once per release, including when the migrate container already exited.
 docker compose run --rm --no-deps migrate
-docker compose run --rm --no-deps model-init
 docker compose up -d --no-build --no-deps --wait --wait-timeout 180 worker dispatcher api cleanup web
 for attempt in {1..30}; do
     if docker compose exec -T web wget -q -O - http://127.0.0.1/api/health/ready; then
