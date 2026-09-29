@@ -1,0 +1,60 @@
+name: Deploy ECS
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'Full 40-character commit SHA with a successful CI run and published images'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - name: Validate revision and CI result
+        env:
+          REVISION: ${{ inputs.revision }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$REVISION&status=success" \
+            --jq '.workflow_runs | map(select(.event == "push" and .head_branch == "main")) | length' \
+            | awk '{ if ($1 < 1) exit 1 }'
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.revision }}
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.ECS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.ECS_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Transfer reviewed deployment files and deploy
+        env:
+          ECS_HOST: ${{ vars.ECS_HOST }}
+          ECS_USER: ${{ vars.ECS_USER }}
+          ECS_PORT: ${{ vars.ECS_PORT || '22' }}
+          REVISION: ${{ inputs.revision }}
+        run: |
+          [[ "$ECS_USER" == 'duscwalk' ]] || { echo 'Configure ECS_USER=duscwalk'; exit 1; }
+          [[ "$ECS_HOST" =~ ^[a-zA-Z0-9.-]+$ && "$ECS_PORT" =~ ^[0-9]+$ ]] || exit 1
+          target="$ECS_USER@$ECS_HOST"
+          ssh -p "$ECS_PORT" "$target" 'mkdir -p ~/apps/nju-attendance/deploy'
+          scp -P "$ECS_PORT" compose.yaml "$target:apps/nju-attendance/compose.yaml"
+          scp -P "$ECS_PORT" deploy/release.sh "$target:apps/nju-attendance/deploy/release.sh"
+          ssh -p "$ECS_PORT" "$target" "cd ~/apps/nju-attendance && bash deploy/release.sh $REVISION"

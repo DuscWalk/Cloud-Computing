@@ -1,0 +1,91 @@
+name: nju-attendance
+x-backend: &backend
+  image: ${BACKEND_IMAGE:-nju-attendance-api:local}
+  build: ./backend
+  environment: &app-environment
+    APP_ENV: ${APP_ENV:-development}
+    APP_DATABASE_URL: mysql+pymysql://attendance:${MYSQL_PASSWORD:?Set MYSQL_PASSWORD}@mysql:3306/attendance?charset=utf8mb4
+    APP_REDIS_URL: redis://redis:6379/0
+    APP_SECRET_KEY: ${APP_SECRET_KEY:?Set APP_SECRET_KEY}
+    APP_COOKIE_SECURE: ${APP_COOKIE_SECURE:-false}
+    APP_STORAGE_DIR: /app/data/photos
+  volumes:
+    - photos:/app/data/photos
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: attendance
+      MYSQL_USER: attendance
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  cleanup:
+    <<: *backend
+    restart: unless-stopped
+    command: ["sh", "-c", "while true; do python -m app.cleanup; sleep 3600; done"]
+    depends_on:
+      api:
+        condition: service_healthy
+
+  web:
+    image: ${FRONTEND_IMAGE:-nju-attendance-web:local}
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  mysql-data:
+  redis-data:
+  photos:
