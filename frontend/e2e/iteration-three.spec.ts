@@ -35,6 +35,12 @@ test('real models: register, anonymous recognition, reject unknown, records and 
   const csrf = (await (await admin.get('/api/auth/csrf')).json()).csrf_token
   expect((await admin.post('/api/auth/login', { headers: { 'X-CSRF-Token': csrf }, data: { username: adminUsername, password: adminPassword } })).ok()).toBe(true)
   let userId = ''; let eventId = ''
+  let releasePhotos: () => void = () => {}
+  const photosGate = new Promise<void>(resolve => { releasePhotos = resolve })
+  await page.route('**/api/me/photos', async route => {
+    await photosGate
+    await route.continue()
+  }, { times: 1 })
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   try {
@@ -44,6 +50,9 @@ test('real models: register, anonymous recognition, reject unknown, records and 
     await page.getByLabel('账号', { exact: true }).fill(adminUsername)
     await page.getByLabel('密码', { exact: true }).fill(adminPassword)
     await page.getByRole('button', { name: '登录', exact: true }).click()
+    // Reproduce a slow profile response: visible navigation must wait for login to finish.
+    await expect(page.getByRole('button', { name: '管理活动与人员' })).toBeDisabled()
+    releasePhotos()
     await page.getByRole('button', { name: '管理活动与人员' }).click()
     await page.getByLabel('活动名称').fill(eventName)
     const createdEvent = page.waitForResponse(r => r.url().endsWith('/api/admin/events') && r.request().method() === 'POST')
@@ -115,16 +124,31 @@ test('real models: register, anonymous recognition, reject unknown, records and 
         const sorted = values.map(v => v.complete_ms).sort((a, b) => a - b)
         report.push({ concurrency, samples: values, p95_ms: sorted[Math.ceil(sorted.length * 0.95) - 1] })
       }
-      fs.writeFileSync(info.outputPath('concurrency.json'), JSON.stringify({ host: 'GitHub CI or configured remote deployment; not an ECS benchmark unless explicitly run there', client_cpu: os.cpus()[0]?.model, client_cpus: os.cpus().length, results: report }, null, 2))
+      fs.writeFileSync(info.outputPath('concurrency.json'), JSON.stringify({
+        deployment: baseURL,
+        environment: process.env.E2E_ENVIRONMENT || 'GitHub CI',
+        note: 'Client CPU describes the browser driver, not the model server. One batch per concurrency; not a sustained capacity estimate.',
+        client_cpu: os.cpus()[0]?.model, client_cpus: os.cpus().length, results: report,
+      }, null, 2))
     } finally { await anonymous.dispose() }
     const saved = await (await admin.get(`/api/admin/events/${eventId}/records`)).json()
     expect(saved.items).toHaveLength(1)
     expect(saved.items[0].name).toBe(personName)
-    if (process.env.E2E_DATABASE_EVIDENCE === 'compose') {
-      // Only the isolated CI stack opts in. The developer machine never starts models.
-      const compose = ['compose', '-f', '../compose.yaml', 'exec', '-T', 'api']
-      execFileSync('docker', [...compose, 'python', '-m', 'app.evidence', '--output', '/tmp/database-evidence.html'])
-      const html = execFileSync('docker', [...compose, 'cat', '/tmp/database-evidence.html'], { encoding: 'utf8' })
+    fs.writeFileSync(info.outputPath('verification-ids.json'), JSON.stringify({ event_id: eventId, user_id: userId, event_name: eventName }, null, 2))
+    if (['compose', 'ecs'].includes(process.env.E2E_DATABASE_EVIDENCE || '')) {
+      // Explicit opt-in: inspect the CI stack or remote ECS, never start local models.
+      let html: string
+      if (process.env.E2E_DATABASE_EVIDENCE === 'ecs') {
+        const target = process.env.E2E_SSH_TARGET || 'duscwalk@120.46.147.216'
+        if (!/^duscwalk@[a-zA-Z0-9.-]+$/.test(target)) throw new Error('Invalid ECS SSH target')
+        const remote = 'cd ~/apps/nju-attendance && docker compose exec -T api '
+        execFileSync('ssh', ['-o', 'BatchMode=yes', target, remote + 'python -m app.evidence --output /tmp/database-evidence.html'])
+        html = execFileSync('ssh', ['-o', 'BatchMode=yes', target, remote + 'cat /tmp/database-evidence.html'], { encoding: 'utf8' })
+      } else {
+        const compose = ['compose', '-f', '../compose.yaml', 'exec', '-T', 'api']
+        execFileSync('docker', [...compose, 'python', '-m', 'app.evidence', '--output', '/tmp/database-evidence.html'])
+        html = execFileSync('docker', [...compose, 'cat', '/tmp/database-evidence.html'], { encoding: 'utf8' })
+      }
       fs.writeFileSync(info.outputPath('database.html'), html)
       const databasePage = await page.context().newPage()
       await databasePage.setViewportSize({ width: 1600, height: 1000 })
@@ -143,6 +167,7 @@ test('real models: register, anonymous recognition, reject unknown, records and 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     expect(errors).toEqual([])
   } finally {
+    releasePhotos()
     if (userId) await admin.delete(`/api/admin/users/${userId}`, { headers: { 'X-CSRF-Token': csrf } })
     if (eventId) await admin.post(`/api/admin/events/${eventId}/cancel`, { headers: { 'X-CSRF-Token': csrf } })
     await admin.dispose()

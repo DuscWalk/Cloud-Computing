@@ -210,11 +210,11 @@ onUnmounted(() => { clearPhoto(); stopPolling() })
       <button class="primary" :disabled="busy || preparing || !initialized || !photo || !canCheckin" @click="anonymousCheckin"><van-icon aria-hidden="true" name="passed" /> {{ busy ? '提交中…' : pending(job) ? '正在处理…' : '开始签到' }}</button>
       <p class="privacy">照片仅用于本次身份核验，临时签到照片 24 小时后清理。</p>
       <div class="actions">
-        <button @click="go('register')"><van-icon aria-hidden="true" name="add-o" /> 注册账号</button>
-        <button v-if="!loggedIn" @click="go('login')"><van-icon aria-hidden="true" name="user-o" /> 登录</button>
-        <button v-else @click="go('profile')"><van-icon aria-hidden="true" name="user-o" /> 个人中心</button>
+        <button :disabled="busy" @click="go('register')"><van-icon aria-hidden="true" name="add-o" /> 注册账号</button>
+        <button v-if="!loggedIn" :disabled="busy" @click="go('login')"><van-icon aria-hidden="true" name="user-o" /> 登录</button>
+        <button v-else :disabled="busy" @click="go('profile')"><van-icon aria-hidden="true" name="user-o" /> 个人中心</button>
       </div>
-      <button v-if="me?.role === 'admin'" class="secondary" @click="go('admin')">管理活动与人员</button>
+      <button v-if="me?.role === 'admin'" class="secondary" :disabled="busy" @click="go('admin')">管理活动与人员</button>
     </section>
 
     <form v-else-if="mode === 'register'" @submit.prevent="register">
@@ -227,15 +227,15 @@ onUnmounted(() => { clearPhoto(); stopPolling() })
       <img v-if="preview" class="preview" :src="preview" alt="待上传照片预览">
       <label class="check"><input v-model="form.consent" type="checkbox" required>我同意照片与人脸特征用于本课程签到；标准照片保留至本人删除，临时签到照片保留 24 小时。</label>
       <button class="primary" :disabled="busy || preparing || !initialized || !photo || !form.consent">{{ busy ? '提交中…' : '创建账号并上传' }}</button>
-      <button type="button" class="link" @click="go('home')">返回签到</button>
+      <button type="button" class="link" :disabled="busy" @click="go('home')">返回签到</button>
     </form>
 
     <form v-else-if="mode === 'login'" @submit.prevent="login">
       <label>账号<input v-model="loginForm.username" maxlength="32" autocomplete="username" required></label>
       <label>密码<input v-model="loginForm.password" type="password" maxlength="128" autocomplete="current-password" required></label>
       <button class="primary" :disabled="busy || !initialized">{{ busy ? '登录中…' : '登录' }}</button>
-      <button type="button" class="link" @click="go('register')">注册账号</button>
-      <button type="button" class="link" @click="go('home')">返回签到</button>
+      <button type="button" class="link" :disabled="busy" @click="go('register')">注册账号</button>
+      <button type="button" class="link" :disabled="busy" @click="go('home')">返回签到</button>
     </form>
 
     <section v-else-if="mode === 'profile'">
@@ -250,17 +250,17 @@ onUnmounted(() => { clearPhoto(); stopPolling() })
       <label class="upload"><input type="file" accept="image/jpeg,image/png,image/webp" capture="user" aria-label="新标准照片" @change="selectPhoto"><span><van-icon aria-hidden="true" name="photograph" /> {{ preparing ? '正在整理照片…' : photo ? '照片已选择' : '上传新标准照' }}</span></label>
       <img v-if="preview" class="preview" :src="preview" alt="待上传照片预览">
       <button class="primary" :disabled="busy || preparing || !initialized || !photo || pending(job)" @click="uploadStandard">上传并核验</button>
-      <button class="secondary" @click="go('records')">查看签到记录</button>
-      <button v-if="me?.role === 'admin'" class="secondary" @click="go('admin')">管理活动与人员</button>
-      <button class="link" @click="go('home')">返回签到</button>
+      <button class="secondary" :disabled="busy" @click="go('records')">查看签到记录</button>
+      <button v-if="me?.role === 'admin'" class="secondary" :disabled="busy" @click="go('admin')">管理活动与人员</button>
+      <button class="link" :disabled="busy" @click="go('home')">返回签到</button>
     </section>
 
     <section v-else-if="mode === 'records'">
       <p v-if="!records.length" class="sub">暂无记录。</p>
       <article v-for="item in records" :key="item.id" class="record-row"><div><b>{{ item.event_name }}</b><small>签到成功</small></div><time>{{ dateTime(item.checked_at) }}</time></article>
-      <button class="secondary" @click="go('records')">刷新记录</button><button class="link" @click="go('profile')">返回我的照片</button>
+      <button class="secondary" :disabled="busy" @click="go('records')">刷新记录</button><button class="link" :disabled="busy" @click="go('profile')">返回我的照片</button>
     </section>
 
-    <section v-else-if="mode === 'admin' && me?.role === 'admin'"><AdminPanel :request="api" :run="perform" :busy="busy" /><button class="link" @click="go('profile')">返回个人中心</button></section>
+    <section v-else-if="mode === 'admin' && me?.role === 'admin'"><AdminPanel :request="api" :run="perform" :busy="busy" /><button class="link" :disabled="busy" @click="go('profile')">返回个人中心</button></section>
   </main>
 </template>
