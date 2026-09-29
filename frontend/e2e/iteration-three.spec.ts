@@ -53,6 +53,7 @@ test('real models: register, anonymous recognition, reject unknown, records and 
     eventId = (await eventResponse.json()).id
     await expect(page.getByText('活动已创建，可以复制链接邀请大家签到。')).toBeVisible()
     await page.getByRole('button', { name: '退出', exact: true }).click()
+    await expect(page.getByText('已退出登录', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: '注册账号', exact: true }).click()
     await page.getByLabel('姓名', { exact: true }).fill(personName)
     await page.getByLabel('学号/工号').fill(suffix)
@@ -74,6 +75,7 @@ test('real models: register, anonymous recognition, reject unknown, records and 
     await expect.poll(() => page.getByAltText('我的标准照片').evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0)
     await page.screenshot({ path: info.outputPath('02-enrolled.png'), fullPage: true })
     await page.getByRole('button', { name: '退出', exact: true }).click()
+    await expect(page.getByText('已退出登录', { exact: true })).toBeVisible()
     expect((await page.request.get('/api/me')).status()).toBe(401)
     await page.getByLabel('签到活动').selectOption(eventId)
 
